@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopkeeper Chat</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="shopkeeper-theme">
+    <div class="container">
+        <!-- Login Screen -->
+        <div class="login-container" id="login-container">
+            <h1>Shopkeeper Chat</h1>
+            <div class="login-form">
+                <div class="form-group">
+                    <label for="shopkeeper-id">Shopkeeper ID</label>
+                    <input type="text" id="shopkeeper-id" placeholder="Enter shopkeeper ID" value="shopkeeper">
+                </div>
+                <div class="form-group">
+                    <label for="shopkeeper-name">Shop Name</label>
+                    <input type="text" id="shopkeeper-name-input" placeholder="Enter shop name">
+                </div>
+                <button id="shopkeeper-login-btn">Login</button>
+            </div>
+        </div>
+
+        <!-- Chat Dashboard -->
+        <div class="dashboard-container" id="dashboard-container">
+            <div class="sidebar">
+                <div class="sidebar-header">
+                    <h2>Students</h2>
+                    <span id="shop-display-name"></span>
+                </div>
+                <div class="search-container">
+                    <input type="text" id="search-input" placeholder="Search students...">
+                </div>
+                <div class="students-list" id="students-list">
+                    <!-- Student list will be populated here -->
+                    <div class="empty-list-message">No students have contacted you yet.</div>
+                </div>
+                <div class="sidebar-footer">
+                    <button id="shopkeeper-logout-btn" class="icon-btn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                </div>
+            </div>
+            
+            <div class="chat-area">
+                <div class="chat-header" id="chat-header">
+                    <div class="selected-student" id="selected-student">
+                        <i class="fas fa-user"></i>
+                        <span>Select a student to start chatting</span>
+                    </div>
+                </div>
+                
+                <div class="messages-container" id="messages">
+                    <!-- Messages will be added here dynamically -->
+                    <div class="welcome-message">
+                        <p>Welcome to your shop dashboard!</p>
+                        <p>Select a student from the list to view your conversation.</p>
+                    </div>
+                </div>
+                
+                <div class="input-container" id="input-container">
+                    <input type="text" id="message-input" placeholder="Type your message..." disabled>
+                    <button id="send-btn" disabled><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="shopkeeper.js"></script>
+</body>
+</html>
