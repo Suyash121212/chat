@@ -366,3 +366,53 @@ button:disabled {
         max-width: 85%;
     }
 }
+
+/* Message styling */
+.messages {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    overflow-y: auto;
+  }
+  
+  /* Common message styles */
+  .message {
+    max-width: 80%;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    position: relative;
+  }
+  
+  /* Sent messages - right aligned with different background */
+  .message.sent {
+    align-self: flex-end;
+    background-color: #dcf8c6; /* WhatsApp-like green color */
+    margin-left: auto;
+  }
+  
+  /* Received messages - left aligned */
+  .message.received {
+    align-self: flex-start;
+    background-color: #f1f0f0; /* Light gray */
+    margin-right: auto;
+  }
+  
+  /* Message content container */
+  .message-content {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* Message text */
+  .message-content p {
+    margin: 0 0 5px 0;
+    word-wrap: break-word;
+  }
+  
+  /* Message timestamp */
+  .message-time {
+    font-size: 0.7rem;
+    color: #8d8d8d;
+    align-self: flex-end;
+  }

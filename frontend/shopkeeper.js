@@ -109,42 +109,48 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Listen for incoming messages
-    socket.on('directMessage', (message) => {
-        // Check if message belongs to current conversation
-        if (currentStudent && 
-            ((message.sender === shopkeeperData.userId && message.recipient === currentStudent.userId) ||
-             (message.sender === currentStudent.userId && message.recipient === shopkeeperData.userId))) {
-            
-            addMessageToDOM(message);
-            
-            // Scroll to bottom
-            messagesEl.scrollTop = messagesEl.scrollHeight;
-            
-            // Mark messages as read if they're from current student
-            if (message.sender === currentStudent.userId) {
-                markMessagesAsRead(currentStudent.userId, shopkeeperData.userId);
-                // Reset unread count for this student
-                unreadMessageCounts[currentStudent.userId] = 0;
-                updateStudentListItem(currentStudent);
-            }
-        } 
-        // If message is from a student not currently selected
-        else if (message.sender !== shopkeeperData.userId && message.recipient === shopkeeperData.userId) {
-            // Increment unread count
-            if (!unreadMessageCounts[message.sender]) {
-                unreadMessageCounts[message.sender] = 0;
-            }
-            unreadMessageCounts[message.sender]++;
-            
-            // Find or add the student
-            const existingStudent = students.find(s => s.userId === message.sender);
-            if (existingStudent) {
-                updateStudentListItem(existingStudent);
-            } else {
-                loadStudents(); // Reload to get new student
-            }
+    // Fixed code for shopkeeper.js
+socket.on('directMessage', (message) => {
+    // Check if message belongs to current conversation
+    if (currentStudent && 
+        ((message.sender === shopkeeperData.userId && message.recipient === currentStudent.userId) ||
+         (message.sender === currentStudent.userId && message.recipient === shopkeeperData.userId))) {
+        
+        addMessageToDOM(message);
+        
+        // Scroll to bottom
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        
+        // Mark messages as read if they're from current student
+        if (message.sender === currentStudent.userId) {
+            markMessagesAsRead(currentStudent.userId, shopkeeperData.userId);
+            // Reset unread count for this student
+            unreadMessageCounts[currentStudent.userId] = 0;
+            updateStudentListItem(currentStudent);
         }
-    });
+    } 
+    // If message is from a student not currently selected
+    else if (message.sender !== shopkeeperData.userId && message.recipient === shopkeeperData.userId) {
+        // Increment unread count
+        if (!unreadMessageCounts[message.sender]) {
+            unreadMessageCounts[message.sender] = 0;
+        }
+        unreadMessageCounts[message.sender]++;
+        
+        // Find or add the student
+        const existingStudent = students.find(s => s.userId === message.sender);
+        if (existingStudent) {
+            updateStudentListItem(existingStudent);
+        } else {
+            loadStudents(); // Reload to get new student
+        }
+    }
+    // If message is from shopkeeper to a student who is not currently selected
+    else if (message.sender === shopkeeperData.userId && currentStudent && message.recipient !== currentStudent.userId) {
+        // Do nothing - don't add to current conversation
+        return;
+    }
+});
     
     // Load students who have sent messages
     async function loadStudents() {

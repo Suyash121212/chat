@@ -79,7 +79,8 @@ io.on('connection', (socket) => {
         text,
         sender,
         recipient,
-        timestamp: new Date()
+        timestamp: new Date(),
+        read: false // Initialize as unread
       });
       
       await message.save();
@@ -93,6 +94,20 @@ io.on('connection', (socket) => {
       socket.emit('directMessage', message);
     } catch (error) {
       console.error('Error saving message:', error);
+    }
+  });
+  
+  // Typing indicator events
+  socket.on('typing', (data) => {
+    const { sender, recipient, isTyping } = data;
+    
+    // Forward typing status to recipient if online
+    if (onlineUsers[recipient]) {
+      io.to(onlineUsers[recipient].socketId).emit('typing', {
+        sender,
+        recipient,
+        isTyping
+      });
     }
   });
   
