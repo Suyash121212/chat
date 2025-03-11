@@ -23,7 +23,7 @@ app.use(express.json());
 app.use(express.static('../frontend'));
 
 // Connect to MongoDB
-mongoose.connect('mongodb+srv://surajkhaire201:Suraj123@cluster2.rifkn.mongodb.net/EasyPrintMessages?retryWrites=true&w=majority&appName=Cluster2', {
+mongoose.connect('', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
