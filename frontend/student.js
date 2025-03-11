@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    function sendMessage() {
+    async function sendMessage() {
         const text = messageInput.value.trim();
         if (!text) return;
         
@@ -125,16 +125,22 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear input
         messageInput.value = '';
         messageInput.focus();
+        
+        // Wait a short moment to ensure the message is processed
+        setTimeout(() => {
+            // Refresh the conversation to ensure all messages are displayed
+            loadConversation();
+        }, 300);
     }
     
     // Listen for incoming messages
     socket.on('directMessage', (message) => {
         if ((message.sender === userData.userId && message.recipient === shopkeeper.userId) ||
             (message.sender === shopkeeper.userId && message.recipient === userData.userId)) {
-            addMessageToDOM(message);
             
-            // Scroll to bottom
-            messagesEl.scrollTop = messagesEl.scrollHeight;
+            // Instead of just adding the single message, refresh the entire conversation
+            // to ensure everything is in sync with the database
+            loadConversation();
             
             // Mark messages as read if they're from shopkeeper
             if (message.sender === shopkeeper.userId) {
@@ -142,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+    
     // Listen for shopkeeper online status
     socket.on('shopkeeperStatus', (status) => {
         shopkeeper.online = status.online;
@@ -209,6 +216,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // Set up auto-refresh for messages
+    function setupAutoRefresh() {
+        // Refresh the conversation every 5 seconds
+        setInterval(() => {
+            if (chatContainer.style.display === 'flex') {
+                loadConversation();
+            }
+        }, 5000);
+    }
+    
+    // Initialize auto-refresh
+    setupAutoRefresh();
+    
     // Logout functionality
     logoutBtn.addEventListener('click', () => {
         socket.emit('logout', { userId: userData.userId });
@@ -231,6 +251,26 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('connect_error', (error) => {
         console.error('Connection error:', error);
         alert('Unable to connect to the server. Please try again later.');
+    });
+    
+    // Add reconnection handling
+    socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+        shopkeeperStatus.textContent = 'Connecting...';
+        shopkeeperStatus.className = 'status-offline';
+    });
+    
+    socket.on('reconnect', () => {
+        console.log('Reconnected to server');
+        if (userData.userId) {
+            // Re-login after reconnection
+            socket.emit('login', {
+                userId: userData.userId,
+                userType: 'student'
+            });
+            // Refresh conversation
+            loadConversation();
+        }
     });
     
     // Handle typing indicators (optional feature)
@@ -269,4 +309,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-

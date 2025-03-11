@@ -15,7 +15,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const shopkeeperLogoutBtn = document.getElementById('shopkeeper-logout-btn');
     
     // Connect to the server
-    const socket = io('http://localhost:5000');
+    const socket = io('http://localhost:5000', {
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
+    });
     
     // Shopkeeper data
     let shopkeeperData = {
@@ -103,54 +107,78 @@ document.addEventListener('DOMContentLoaded', () => {
         // Send the message
         socket.emit('sendDirectMessage', messageData);
         
+        // Add the message to the DOM immediately (optimistic update)
+        addMessageToDOM({
+            ...messageData,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Scroll to bottom
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        
         // Clear input
         messageInput.value = '';
         messageInput.focus();
     }
     
     // Listen for incoming messages
-    // Fixed code for shopkeeper.js
-socket.on('directMessage', (message) => {
-    // Check if message belongs to current conversation
-    if (currentStudent && 
-        ((message.sender === shopkeeperData.userId && message.recipient === currentStudent.userId) ||
-         (message.sender === currentStudent.userId && message.recipient === shopkeeperData.userId))) {
+    socket.on('directMessage', (message) => {
+        console.log('Received message:', message);
         
-        addMessageToDOM(message);
-        
-        // Scroll to bottom
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-        
-        // Mark messages as read if they're from current student
-        if (message.sender === currentStudent.userId) {
-            markMessagesAsRead(currentStudent.userId, shopkeeperData.userId);
-            // Reset unread count for this student
-            unreadMessageCounts[currentStudent.userId] = 0;
-            updateStudentListItem(currentStudent);
+        // Check if message belongs to current conversation
+        if (currentStudent && 
+            ((message.sender === shopkeeperData.userId && message.recipient === currentStudent.userId) ||
+             (message.sender === currentStudent.userId && message.recipient === shopkeeperData.userId))) {
+            
+            addMessageToDOM(message);
+            
+            // Scroll to bottom
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            
+            // Mark messages as read if they're from current student
+            if (message.sender === currentStudent.userId) {
+                markMessagesAsRead(currentStudent.userId, shopkeeperData.userId);
+                // Reset unread count for this student
+                unreadMessageCounts[currentStudent.userId] = 0;
+                updateStudentListItem(currentStudent);
+            }
+        } 
+        // If message is from a student not currently selected
+        else if (message.sender !== shopkeeperData.userId && message.recipient === shopkeeperData.userId) {
+            // Update unread count
+            if (!unreadMessageCounts[message.sender]) {
+                unreadMessageCounts[message.sender] = 0;
+            }
+            unreadMessageCounts[message.sender]++;
+            
+            // Find the student in the list or add them
+            const existingStudent = students.find(s => s.userId === message.sender);
+            if (existingStudent) {
+                updateStudentListItem(existingStudent);
+            } else {
+                // This is a new student, refresh the students list
+                loadStudents();
+            }
+            
+            // Play notification sound or show desktop notification
+            notifyNewMessage(message);
         }
-    } 
-    // If message is from a student not currently selected
-    else if (message.sender !== shopkeeperData.userId && message.recipient === shopkeeperData.userId) {
-        // Increment unread count
-        if (!unreadMessageCounts[message.sender]) {
-            unreadMessageCounts[message.sender] = 0;
-        }
-        unreadMessageCounts[message.sender]++;
+    });
+    
+    // Notification function for new messages
+    function notifyNewMessage(message) {
+        // You can add a notification sound here
+        // const audio = new Audio('notification.mp3');
+        // audio.play();
         
-        // Find or add the student
-        const existingStudent = students.find(s => s.userId === message.sender);
-        if (existingStudent) {
-            updateStudentListItem(existingStudent);
-        } else {
-            loadStudents(); // Reload to get new student
+        // Or display a browser notification if permission is granted
+        if (Notification.permission === 'granted') {
+            const student = students.find(s => s.userId === message.sender) || { name: message.sender };
+            new Notification('New Message', {
+                body: `New message from ${student.name}`
+            });
         }
     }
-    // If message is from shopkeeper to a student who is not currently selected
-    else if (message.sender === shopkeeperData.userId && currentStudent && message.recipient !== currentStudent.userId) {
-        // Do nothing - don't add to current conversation
-        return;
-    }
-});
     
     // Load students who have sent messages
     async function loadStudents() {
@@ -220,9 +248,12 @@ socket.on('directMessage', (message) => {
         const unreadBadge = unreadCount > 0 ? 
             `<span class="unread-badge">${unreadCount}</span>` : '';
         
+        const isOnline = student.online ? '<span class="status-indicator online"></span>' : '';
+        
         studentEl.innerHTML = `
             <div class="student-info">
                 <i class="fas fa-user"></i>
+                ${isOnline}
                 <div class="student-details">
                     <span class="student-name">${student.name}</span>
                     <span class="student-id">${student.userId}</span>
@@ -327,6 +358,19 @@ socket.on('directMessage', (message) => {
     
     // Add a message to the DOM
     function addMessageToDOM(message) {
+        // Check if message already exists in DOM
+        const existingMessages = Array.from(messagesEl.querySelectorAll('.message'));
+        const messageExists = existingMessages.some(msgEl => {
+            const content = msgEl.querySelector('p').textContent;
+            const time = msgEl.querySelector('.message-time').textContent;
+            const isSender = msgEl.classList.contains('sent') === (message.sender === shopkeeperData.userId);
+            
+            // Compare message content and approximate time
+            return content === message.text && isSender;
+        });
+        
+        if (messageExists) return;
+        
         const messageEl = document.createElement('div');
         messageEl.className = message.sender === shopkeeperData.userId ? 'message sent' : 'message received';
         
@@ -341,6 +385,9 @@ socket.on('directMessage', (message) => {
         `;
         
         messagesEl.appendChild(messageEl);
+        
+        // Scroll to bottom
+        messagesEl.scrollTop = messagesEl.scrollHeight;
     }
     
     // Mark messages as read
@@ -383,35 +430,62 @@ socket.on('directMessage', (message) => {
         dashboardContainer.style.display = 'none';
         messagesEl.innerHTML = '';
         studentsList.innerHTML = '';
+        shopkeeperIdInput.value = '';
         shopkeeperNameInput.value = '';
         currentStudent = null;
         students = [];
     });
     
-    // Notify server that shopkeeper is online
+    // Socket connection handling
     socket.on('connect', () => {
+        console.log('Connected to server');
         if (shopkeeperData.userId) {
+            socket.emit('login', {
+                userId: shopkeeperData.userId,
+                userType: 'shopkeeper'
+            });
             socket.emit('shopkeeperOnline', { online: true });
+        }
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+    });
+    
+    socket.on('reconnect', () => {
+        console.log('Reconnected to server');
+        if (shopkeeperData.userId) {
+            socket.emit('login', {
+                userId: shopkeeperData.userId,
+                userType: 'shopkeeper'
+            });
         }
     });
     
     // Handle connection errors
     socket.on('connect_error', (error) => {
         console.error('Connection error:', error);
-        alert('Unable to connect to the server. Please try again later.');
     });
     
-    // Student comes online notification
+    // Student status notifications
     socket.on('studentOnline', (data) => {
         const student = students.find(s => s.userId === data.userId);
         if (student) {
-            // You could update UI to show student is online
-            // For example, add an "online" indicator to the student list item
+            student.online = data.online;
             const studentEl = document.querySelector(`.student-item[data-user-id="${student.userId}"]`);
             if (studentEl) {
-                const statusIndicator = document.createElement('span');
-                statusIndicator.className = 'status-indicator online';
-                studentEl.querySelector('.student-info').appendChild(statusIndicator);
+                const statusIndicator = studentEl.querySelector('.status-indicator');
+                if (data.online) {
+                    if (!statusIndicator) {
+                        const newIndicator = document.createElement('span');
+                        newIndicator.className = 'status-indicator online';
+                        studentEl.querySelector('.student-info').insertBefore(newIndicator, studentEl.querySelector('.student-details'));
+                    } else {
+                        statusIndicator.classList.add('online');
+                    }
+                } else if (statusIndicator) {
+                    statusIndicator.classList.remove('online');
+                }
             }
         }
     });
@@ -444,25 +518,29 @@ socket.on('directMessage', (message) => {
     
     socket.on('typing', (data) => {
         if (currentStudent && data.sender === currentStudent.userId && data.recipient === shopkeeperData.userId) {
-            const typingIndicator = document.createElement('div');
-            typingIndicator.id = 'typing-indicator';
-            typingIndicator.className = 'typing-indicator';
-            typingIndicator.textContent = `${currentStudent.name} is typing...`;
-            
-            // Remove existing indicator if any
             const existingIndicator = document.getElementById('typing-indicator');
-            if (existingIndicator) {
-                existingIndicator.remove();
-            }
             
             if (data.isTyping) {
-                messagesEl.appendChild(typingIndicator);
-                messagesEl.scrollTop = messagesEl.scrollHeight;
+                if (!existingIndicator) {
+                    const typingIndicator = document.createElement('div');
+                    typingIndicator.id = 'typing-indicator';
+                    typingIndicator.className = 'typing-indicator';
+                    typingIndicator.textContent = `${currentStudent.name} is typing...`;
+                    messagesEl.appendChild(typingIndicator);
+                    messagesEl.scrollTop = messagesEl.scrollHeight;
+                }
+            } else if (existingIndicator) {
+                existingIndicator.remove();
             }
         }
     });
     
-    // Check for new messages periodically
+    // Request desktop notification permission
+    if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission();
+    }
+    
+    // Check for new messages periodically (as a backup to socket connections)
     setInterval(async () => {
         if (shopkeeperData.userId) {
             await getUnreadMessageCounts();
@@ -470,5 +548,5 @@ socket.on('directMessage', (message) => {
                 updateStudentListItem(student);
             });
         }
-    }, 10000);
+    }, 30000); // Reduced frequency since we have real-time updates now
 });
